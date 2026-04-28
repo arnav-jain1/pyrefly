@@ -1330,13 +1330,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             AtomicNarrowOp::IsTruthy | AtomicNarrowOp::IsFalsy => {
                 self.distribute_over_union(ty, |t| {
                     let boolval = matches!(op, AtomicNarrowOp::IsTruthy);
+                    let suppress = ErrorCollector::new(errors.module().clone(), ErrorStyle::Never);
                     // Do not emit errors here: the narrowed range doesn't always correspond to a valid expression
                     // For example, narrowing generated for implicit else branches.
-                    if self.as_bool(
-                        t,
-                        range,
-                        &ErrorCollector::new(errors.module().clone(), ErrorStyle::Never),
-                    ) == Some(!boolval)
+                    if self.as_bool(t, range, &suppress) == Some(!boolval) {
+                        return self.heap.mk_never();
+                    } else if !boolval
+                        && matches!(t, Type::ClassType(_))
+                        && self
+                            .type_of_magic_dunder_attr(
+                                t,
+                                &dunder::BOOL,
+                                range,
+                                &suppress,
+                                None,
+                                "IsFalsy",
+                                false,
+                            )
+                            .is_none()
+                        && self
+                            .type_of_magic_dunder_attr(
+                                t,
+                                &dunder::LEN,
+                                range,
+                                &suppress,
+                                None,
+                                "IsFalsy",
+                                false,
+                            )
+                            .is_none()
                     {
                         return self.heap.mk_never();
                     } else if let Type::ClassType(cls) = t {

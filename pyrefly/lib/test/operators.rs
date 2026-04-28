@@ -1094,3 +1094,19 @@ _ = [{"col": None}] * 1000
 assert_type([1, 2, 3] * 5, list[int])
 "#,
 );
+
+// https://github.com/facebook/pyrefly/issues/2064
+testcase!(
+    test_boolop_always_truthy_class,
+    r#"
+from typing import assert_type
+
+class MyClass:
+    name: str
+
+def myfn(x: MyClass | None) -> str | None:
+    result = x and x.name
+    assert_type(result, str | None)
+    return result
+"#,
+);
